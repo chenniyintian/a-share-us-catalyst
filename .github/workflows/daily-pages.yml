@@ -57,24 +57,21 @@ jobs:
           python scripts/inject_report_into_dist.py --report-date "$report_date" --reports-dir reports-web
 
       - name: Send email report
-        if: env.SMTP_USER != ''
+        env:
+          SMTP_HOST: ${{ secrets.SMTP_HOST }}
+          SMTP_PORT: ${{ secrets.SMTP_PORT }}
+          SMTP_USER: ${{ secrets.SMTP_USER }}
+          SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
+          EMAIL_TO: ${{ secrets.EMAIL_TO }}
+          REPORT_DATE: ${{ github.event.inputs.report_date || '' }}
         run: |
-          report_date="${CATDESK_REPORT_DATE:-$(date +%F)}"
-          report_file="reports-web/${report_date}-morning.md"
-          if [ -f "$report_file" ]; then
-            python -c "
-import os
-os.environ.setdefault('SMTP_HOST', '${{ secrets.SMTP_HOST }}')
-os.environ.setdefault('SMTP_PORT', '${{ secrets.SMTP_PORT }}')
-os.environ.setdefault('SMTP_USER', '${{ secrets.SMTP_USER }}')
-os.environ.setdefault('SMTP_PASSWORD', '${{ secrets.SMTP_PASSWORD }}')
-os.environ.setdefault('EMAIL_TO', '${{ secrets.EMAIL_TO }}')
-from ashare_us_catalyst.notifier import send_email
-report = open('$report_file', encoding='utf-8').read()
-title = f'美股映射A股早报 - {report_date}'
-send_email(report, subject=title)
-print('Email sent OK')
-"
+          if [ -n "$SMTP_USER" ]; then
+            report_date="${REPORT_DATE:-$(date +%F)}"
+            export REPORT_FILE="reports-web/${report_date}-morning.md"
+            export REPORT_DATE="$report_date"
+            python scripts/send_email.py
+          else
+            echo "SMTP_USER not set, skipping email."
           fi
 
       - name: Publish GitHub Pages branch
