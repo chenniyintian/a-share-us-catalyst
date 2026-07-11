@@ -7,7 +7,7 @@ import sys
 from typing import Optional
 
 from .config import load_config
-from .notifier import load_env, send_telegram
+from .notifier import load_env, send_email, send_telegram
 from .providers import AkshareProvider, SampleProvider
 from .report import render_markdown, write_outputs
 from .scoring import rank_report
@@ -27,6 +27,8 @@ def parse_args(argv: Optional[list[str]] = None) -> argparse.Namespace:
     parser.add_argument("--no-cache", action="store_true", help="禁用缓存")
     parser.add_argument("--allow-akshare-fallback", action="store_true", help="直连接口失败时允许使用 AkShare 慢回退")
     parser.add_argument("--send-telegram", action="store_true", help="发送 Telegram 摘要")
+    parser.add_argument("--send-email", action="store_true", help="发送邮件报告")
+    parser.add_argument("--email-to", default=None, help="邮件接收人，逗号分隔（覆盖 EMAIL_TO 环境变量）")
     parser.add_argument("--env", default=".env", help="环境变量文件")
     return parser.parse_args(argv)
 
@@ -61,6 +63,14 @@ def main(argv: Optional[list[str]] = None) -> int:
         load_env(args.env)
         send_telegram(markdown)
         print("已发送 Telegram 摘要")
+
+    if args.send_email:
+        load_env(args.env)
+        kwargs = {}
+        if args.email_to:
+            kwargs["to"] = args.email_to
+        result = send_email(markdown, **kwargs)
+        print(f"已发送邮件至: {', '.join(result['to'])}")
 
     return 0
 
